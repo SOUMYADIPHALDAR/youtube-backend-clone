@@ -1,0 +1,40 @@
+const mongoose = require("mongoose");
+const { Schema } = mongoose;
+const mongooseAgreegatePaginate = require ("mongoose-agreegate-paginate");
+
+const videoSchema = new Schema({
+    videoFile: {
+        type: String,
+        required: true
+    },
+    thumbnail: {
+        type: String,
+        required: true
+    },
+    duration: {
+        type: String,
+        required: true
+    },
+    title: {
+        type: String,
+        required: true
+    },
+    description: {
+        type: String,
+        required: true
+    },
+    views: {
+        type: Number,
+        default: 0
+    },
+    owner: {
+        type: Schema.Types.ObjectId,
+        ref: "User"
+    }
+
+}, {timestamps: true});
+
+videoSchema.plugin(mongooseAgreegatePaginate);
+
+const Video = mongoose.model("Video", videoSchema);
+module.exports = Video;
