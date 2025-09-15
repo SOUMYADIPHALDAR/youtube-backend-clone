@@ -30,7 +30,6 @@ const registerUser = asyncHandler ( async(req, res) => {
     throw new apiError(409, "User with this username of email already exists..");
    }
    //check the avatar is available or not
-   // console.log(req.files);
    const avatarLocalPath = req.files?.avatar[0]?.path;
    if(!avatarLocalPath){
       throw new apiError(409, "Avatar is required..");
@@ -95,10 +94,14 @@ const login = asyncHandler( async(req, res) => {
    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
    const option = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production'
+      secure: true
    };
 
-   res.status(200).cookie("accessToken", accessToken, option).cookie("refreshToken", refreshToken, option).json(
+   return res
+   .status(200)
+   .cookie("accessToken", accessToken, option)
+   .cookie("refreshToken", refreshToken, option)
+   .json(
       new apiResponse(
          200,
          {
@@ -119,7 +122,7 @@ const logout = asyncHandler(async(req, res) => {
    )
    const option = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production'
+      secure: true
    };
 
    return res
@@ -142,7 +145,7 @@ const refreshAccessToken = asyncHandler(async(req, res) => {
        throw new apiError(404, "Invlaid token..");
     }
  
-    if (iscomingAccessToken !== user?.refreshAccessToken) {
+    if (iscomingAccessToken !== user?.refreshToken) {
        throw new apiError(401, "Refresh token is expired or invalid..");
     }
  
@@ -169,9 +172,93 @@ const refreshAccessToken = asyncHandler(async(req, res) => {
 
 })
 
+const changePassword = asyncHandler(async(req, res) => {
+   const { oldPassword, newPassword, confirmPassword } = req.body;
+
+   const user = await User.findById(req.user?._id);
+   const correctPassword = isPasswordCorrect(oldPassword);
+   if(!correctPassword){
+      throw new apiError(400, "Invalid password..");
+   }
+
+   if(newPassword !== confirmPassword){
+      throw new apiError(400, "Your new password and confirm password must be same..");
+   }
+
+   user.password = password;
+   await user.save({validateBeforeSave: false});
+
+   return res
+   .status(200)
+   .json(
+      new apiResponse(200, "Password changed successfully..")
+   )
+});
+
+const getExistingUser = asyncHandler(async(req, res) => {
+   return res
+   .status(200)
+   .json(
+      new apiResponse(200, req.user, "This is your user profile..")
+   )
+});
+
+const updateAccountDetails = asyncHandler(async(req,res) => {
+   const {fullName, email} = req.body;
+   if(!fullName || !email){
+      throw new apiError(400, "All fields are required..");
+   }
+   const user = await User.findByIdAndUpdate(
+      req.user?._id,
+      {
+         $set: {
+            fullName,
+            email
+         }
+      },
+      {new: true}
+   ).select("-password")
+
+   return res
+   .status(200)
+   .json(new apiResponse(200, user, "Update your account details successfully.."));
+});
+
+const updateAvatar = asyncHandler(async(req, res) => {
+   const avatarLocalPath = req.file?.path;
+   if (!avatarLocalPath) {
+      throw new apiError(400, "Avatar file is missing..");
+   }
+
+   const avatar = await uploadToCloudinary(avatarLocalPath);
+   if(!avatar.url){
+      throw new apiError(400, "Error happend during uploading avatar..");
+   }
+
+   const user = await User.findByIdAndUpdate(
+      req.user?._id,
+      {
+         $set: {
+            avatar: avatar.url
+         }
+      },
+      {new: true}
+   ).select("-password");
+
+   return res
+   .status(200)
+   .json(
+      new apiResponse(200, user, "Avatat updated successfully..")
+   )
+});
+
 module.exports = {
    registerUser,
    login,
    logout,
-   refreshAccessToken
+   refreshAccessToken,
+   changePassword,
+   getExistingUser,
+   updateAccountDetails,
+   updateAvatar
 };
