@@ -4,6 +4,7 @@ const apiResponse = require("../utils/apiResponse.js");
 const User = require("../models/user.model.js");
 const uploadToCloudinary = require("../config/cloudinary.js");
 const jwt = require("jsonwebtoken");
+const { default: mongoose } = require("mongoose");
 
 const generateAccessAndRefreshToken = async(userId) => {
    const user = await User.findById(userId);
@@ -176,7 +177,7 @@ const changePassword = asyncHandler(async(req, res) => {
    const { oldPassword, newPassword, confirmPassword } = req.body;
 
    const user = await User.findById(req.user?._id);
-   const correctPassword = isPasswordCorrect(oldPassword);
+   const correctPassword = user.isPasswordCorrect(oldPassword);
    if(!correctPassword){
       throw new apiError(400, "Invalid password..");
    }
@@ -185,7 +186,7 @@ const changePassword = asyncHandler(async(req, res) => {
       throw new apiError(400, "Your new password and confirm password must be same..");
    }
 
-   user.password = password;
+   user.password = newPassword;
    await user.save({validateBeforeSave: false});
 
    return res
@@ -289,9 +290,11 @@ const getUserChannelDetails = asyncHandler(async(req, res) => {
                $size: "$subscribedTo"
             },
             isSubscribed: {
+              $cond: {
                if: {$in: [req.user?._id, "$subscribers.subscriber"]},
                then: true,
                else: false
+              }
             }
          }
       },
@@ -319,6 +322,56 @@ const getUserChannelDetails = asyncHandler(async(req, res) => {
    )
 });
 
+const getWatchHistory = asyncHandler(async(req, res) => {
+   const user = await User.aggregate([
+      {
+         $match: {
+            _id: new mongoose.Types.ObjectId(req.user._id)
+         }
+      },
+      {
+         $lookup: {
+            from: "videos",
+            localField: "watchHistory",
+            foreignField: "_id",
+            as: "watchHistory",
+            pipeline: [
+               {
+                  $lookup: {
+                     from: "user",
+                     localField: "owner",
+                     foreignField: "_id",
+                     as: "owner",
+                     pipeline: [
+                        {
+                           $project: {
+                              fullName: 1,
+                              userName: 1,
+                              avatar: 1
+                           }
+                        }
+                     ]
+                  }
+               },
+               {
+                  $addFields: {
+                     owner: {
+                        $first: "$owner"
+                     }
+                  }
+               }
+            ]
+         }
+      }
+   ])
+
+   return res
+   .status(200)
+   .json(
+      new apiResponse(200, user[0].watchHistory, "Watch history fetched successfully..")
+   )
+});
+
 module.exports = {
    registerUser,
    login,
@@ -328,5 +381,6 @@ module.exports = {
    getExistingUser,
    updateAccountDetails,
    updateAvatar,
-   getUserChannelDetails
+   getUserChannelDetails,
+   getWatchHistory
 };
