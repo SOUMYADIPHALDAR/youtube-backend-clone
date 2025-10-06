@@ -1,29 +1,49 @@
-const cloudinary = require("cloudinary");
+const cloudinary = require("cloudinary").v2;
 const fs = require("fs");
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true
 });
 
-const uploadToCloudinary = async(localFilePath) => {
+const uploadImageToCloudinary = async(localFilePath) => {
+    if (!localFilePath) {
+        return null;
+    }
     try {
-        if(!localFilePath){
-            return null;
-        }
         const response = await cloudinary.uploader.upload(localFilePath, {
-            resource_type: "auto"
-        })
-        console.log("File upload successfully..", response.url);
-        fs.unlinkSync(localFilePath);
+            resource_type: "image"
+        });
         return response;
     } catch (error) {
-        if (localFilePath) {
-            fs.unlinkSync(localFilePath);
-        }
-        console.log("something went wrong..", error);
+        throw error;
+    } finally {
+        try { fs.unlinkSync(localFilePath); } catch (_) {}
     }
 }
 
-module.exports = uploadToCloudinary;
+const uploadVideoToCloudinary = async(localFilePath) => {
+    if (!localFilePath) {
+        return null;
+    }
+    try {
+        // Use upload_large for videos to handle files >100MB reliably
+        const response = await cloudinary.uploader.upload(localFilePath, {
+            resource_type: "video",
+            // chunk_size: 6 * 1024 * 1024 // 6MB chunks
+        });
+        return response;
+
+    } catch (error) {
+        throw error;
+    } finally {
+        try { fs.unlinkSync(localFilePath); } catch (_) {}
+    }
+}
+
+module.exports = {
+    uploadImageToCloudinary,
+    uploadVideoToCloudinary
+};

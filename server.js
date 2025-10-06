@@ -4,7 +4,7 @@ const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const connectDB = require("./src/db/db.js");
 const authRoute = require("./src/routes/user.route.js");
-// const videoRoute = require("./src/routes/media.route.js");
+const videoRoute = require("./src/routes/video.route.js");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -14,6 +14,7 @@ app.use(cookieParser());
 app.use(cors());
 
 app.use("/user", authRoute);
+app.use("/user", videoRoute);
 
 connectDB()
 .then(() => {

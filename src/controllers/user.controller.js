@@ -2,7 +2,7 @@ const asyncHandler = require("../utils/asyncHandler.js");
 const apiError = require("../utils/apiError.js");
 const apiResponse = require("../utils/apiResponse.js");
 const User = require("../models/user.model.js");
-const uploadToCloudinary = require("../config/cloudinary.js");
+const { uploadImageToCloudinary, uploadVideoToCloudinary} = require("../config/cloudinary.js");
 const jwt = require("jsonwebtoken");
 const { default: mongoose } = require("mongoose");
 
@@ -37,7 +37,7 @@ const registerUser = asyncHandler ( async(req, res) => {
    }
 
    //upload avatar file in cloudinary
-   const avatar = await uploadToCloudinary(avatarLocalPath);
+   const avatar = await uploadImageToCloudinary(avatarLocalPath);
    if(!avatar){
       throw new apiError(409, "Avatar file is required..");
    }
@@ -231,7 +231,7 @@ const updateAvatar = asyncHandler(async(req, res) => {
       throw new apiError(400, "Avatar file is missing..");
    }
 
-   const avatar = await uploadToCloudinary(avatarLocalPath);
+   const avatar = await uploadImageToCloudinary(avatarLocalPath);
    if(!avatar.url){
       throw new apiError(400, "Error happend during uploading avatar..");
    }

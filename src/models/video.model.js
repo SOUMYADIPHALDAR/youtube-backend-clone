@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
-const mongooseAgreegatePaginate = require ("mongoose-agreegate-paginate");
+const mongooseAgreegatePaginate = require ("mongoose-aggregate-paginate-v2");
 
 const videoSchema = new Schema({
     videoFile: {
