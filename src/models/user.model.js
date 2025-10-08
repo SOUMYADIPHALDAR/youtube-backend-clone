@@ -28,6 +28,9 @@ const userSchema = new Schema({
         type: String,
         required: true
     },
+    avatarPublicId: {
+        type: String
+    },
     watchHistory: [
         {
             type: Schema.Types.ObjectId,

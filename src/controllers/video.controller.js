@@ -1,3 +1,4 @@
+const cloudinary = require("cloudinary").v2;
 const asyncHandler = require("../utils/asyncHandler.js");
 const apiError = require("../utils/apiError.js");
 const apiResponse = require("../utils/apiResponse.js");
@@ -13,13 +14,13 @@ const publishVideo = asyncHandler(async (req, res) => {
   if (!title || !description) {
     throw new apiError(400, "All fields are required..");
   }
-
-  const videoFilePath = req.files?.videoFile[0]?.path;
+  
+  const videoFilePath = req.files?.videoFile?.[0]?.path;
   if (!videoFilePath) {
     throw new apiError(400, "video file is required..");
   }
 
-  const thumbnailLocalPath = req.files?.thumbnail[0]?.path;
+  const thumbnailLocalPath = req.files?.thumbnail?.[0]?.path;
   if (!thumbnailLocalPath) {
     throw new apiError(400, "Thumbnail file is required..");
   }
@@ -49,7 +50,9 @@ const publishVideo = asyncHandler(async (req, res) => {
     title,
     description,
     videoFile: video.secure_url || video.url,
+    videoFilePublicId: video.public_id,
     thumbnail: thumbnail.secure_url || thumbnail.url,
+    thumbnailPublicId: thumbnail.public_id,
     owner: req.user._id,
   });
   if (!uploadedVideo) {
@@ -69,10 +72,13 @@ const getAllVideos = asyncHandler(async (req, res) => {
   if (userId) filter.owner = userId;
   if (query) filter.title = { $regex: query, $options: "i" };
 
-  const videos = await Video.find(userId)
+  const pageNum = Number(page) || 1;
+  const limitNum = Number(limit) || 10;
+
+  const videos = await Video.find(filter)
     .sort({ [sortBy]: sortType })
-    .skip((page - 1) * limit)
-    .limit(limit);
+    .skip((pageNum - 1) * limitNum)
+    .limit(limitNum);
 
   if (!videos) {
     throw new apiError(404, "There is no such videos..");
@@ -84,12 +90,13 @@ const getAllVideos = asyncHandler(async (req, res) => {
 });
 
 const getById = asyncHandler(async (req, res) => {
-  const { videoID } = req.params;
-  if (!videoID) {
+  const { videoId } = req.params;
+  console.log(videoId);
+  if (!videoId) {
     throw new apiError(400, "Invalid video id..");
   }
 
-  const video = await Video.findById(videoID);
+  const video = await Video.findById(videoId);
   if (!video) {
     throw new apiError(404, "Video not found..");
   }
@@ -100,12 +107,19 @@ const getById = asyncHandler(async (req, res) => {
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
-  const { videoID } = req.params;
+  const { videoId } = req.params;
   const { title, description } = req.body;
+  // console.log(videoID);
+  // console.log(title, description);
 
   const newThumbnailFilePath = req.file?.path;
   if (!newThumbnailFilePath) {
     throw new apiError(400, "Thumbnail not provided..");
+  }
+
+  const video = await Video.findById(videoId);
+  if (!video) {
+    throw new apiError(404, "Video not found..");
   }
 
   const newThumbnail = await uploadImageToCloudinary(newThumbnailFilePath);
@@ -113,37 +127,61 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new apiError(400, "Failed to upload new thumbnail..");
   }
 
-//   await cloudinary.uploader.destroy(video.thumbnailPublicId);
+  if (video?.thumbnailPublicId) {
+    try {
+      await cloudinary.uploader.destroy(video.thumbnailPublicId, {resource_type: "image"});
+    } catch (error) {
+      throw new apiError(500, error.message, "Failed to delete old thumbnail..");
+    }
+  }
 
-  const updateVideo = await Video.findByIdAndUpdate(
-    videoID,
+  const updates = {};
+  if (title) updates.title = title;
+  if (description) updates.description = description;
+  updates.thumbnail = newThumbnail.secure_url;
+  updates.thumbnailPublicId = newThumbnail.public_id;
+
+  const updatedVideo = await Video.findByIdAndUpdate(
+    videoId,
     {
-      $set: {
-        title,
-        description,
-        thumbnail: newThumbnail?.secure_url,
-      },
+      $set: updates,
     },
     { new: true }
   );
 
   return res.status(200).json(
-    new apiResponse(200, updateVideo, "Video updated successfully..")
+    new apiResponse(200, updatedVideo, "Video updated successfully..")
   )
 });
 
 const deleteVideo = asyncHandler(async(req, res) => {
-    const { videoID } = req.params;
-    if (!videoID) {
+    const { videoId } = req.params;
+    if (!videoId) {
         throw new apiError(400, "Video id not provided..");
     }
 
-    const video = await Video.findById(videoID);
+    const video = await Video.findById(videoId);
     if (!video) {
         throw new apiError(400, "Video not found..");
     }
 
-    await Video.findByIdAndDelete(videoID);
+    if (video?.thumbnailPublicId) {
+      try {
+        await cloudinary.uploader.destroy(video?.thumbnailPublicId, {resource_type: "image"})
+      } catch (error) {
+        throw new apiError(500, "Failed to delete thumbnail from cloudinary..", error.message);
+      }
+    }
+
+    if (video?.videoFilePublicId) {
+      try {
+        await cloudinary.uploader.destroy(video?.videoFilePublicId, {resource_type: "video"})
+      } catch (error) {
+        throw new apiError(500, "Failed to delete video from cloudinary..", error.message);
+      }
+    }
+
+    await Video.findByIdAndDelete(videoId);
 
     return res.status(200).json(
         new apiResponse(200, "", "video deleted successfully..")

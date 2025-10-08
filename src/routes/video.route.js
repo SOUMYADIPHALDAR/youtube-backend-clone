@@ -16,8 +16,8 @@ router.post("/publish-video", verifyJWT, upload.fields([
 ]), publishVideo);
 
 router.get("/all-videos", verifyJWT, getAllVideos);
-router.get("/One-video", verifyJWT, getById);
-router.post("/update-video", verifyJWT, updateVideo);
-router.post("/delete-video", verifyJWT, deleteVideo);
+router.get("/one-video/:videoId", verifyJWT, getById);
+router.put("/update-video/:videoId", verifyJWT, upload.single("thumbnail"), updateVideo);
+router.delete("/delete-video/:videoId", verifyJWT, deleteVideo);
 
 module.exports = router;

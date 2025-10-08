@@ -7,9 +7,15 @@ const videoSchema = new Schema({
         type: String,
         required: true
     },
+    videoFilePublicId: {
+        type: String
+    },
     thumbnail: {
         type: String,
         required: true
+    },
+    thumbnailPublicId: {
+        type: String
     },
     duration: {
         type: String,

@@ -5,6 +5,7 @@ const User = require("../models/user.model.js");
 const { uploadImageToCloudinary, uploadVideoToCloudinary} = require("../config/cloudinary.js");
 const jwt = require("jsonwebtoken");
 const { default: mongoose } = require("mongoose");
+const cloudinary = require("cloudinary").v2;
 
 const generateAccessAndRefreshToken = async(userId) => {
    const user = await User.findById(userId);
@@ -47,6 +48,7 @@ const registerUser = asyncHandler ( async(req, res) => {
       fullName,
       email,
       avatar: avatar.url,
+      avatarPublicId: avatar.public_id,
       userName,
       password
    });
@@ -231,12 +233,25 @@ const updateAvatar = asyncHandler(async(req, res) => {
       throw new apiError(400, "Avatar file is missing..");
    }
 
+   const user = await User.findById(req.user?._id)
+   if (!user) {
+      throw new apiError(404, "User not found..");
+   }
+
+   if (user.avatarPublicId) {
+      try {
+         await cloudinary.uploader.destroy(user.avatarPublicId, {resource_type: "image"})
+      } catch (error) {
+         throw new apiError(500, "Failed to change the avatar..", error.message);
+      }
+   }
+
    const avatar = await uploadImageToCloudinary(avatarLocalPath);
    if(!avatar.url){
       throw new apiError(400, "Error happend during uploading avatar..");
    }
 
-   const user = await User.findByIdAndUpdate(
+   const updateUser = await User.findByIdAndUpdate(
       req.user?._id,
       {
          $set: {
@@ -249,7 +264,7 @@ const updateAvatar = asyncHandler(async(req, res) => {
    return res
    .status(200)
    .json(
-      new apiResponse(200, user, "Avatat updated successfully..")
+      new apiResponse(200, updateUser, "Avatat updated successfully..")
    )
 });
 
