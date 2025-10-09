@@ -186,12 +186,29 @@ const deleteVideo = asyncHandler(async(req, res) => {
     return res.status(200).json(
         new apiResponse(200, "", "video deleted successfully..")
     )
-})
+});
+
+const toggelPublicStatus = asyncHandler(async(req, res) => {
+  const { videoId } = req.params;
+
+  const video = await Video.findById(videoId);
+  if (!video) {
+    throw new apiError(404, "Video not found..");
+  }
+
+  video.isPublished = !video.isPublished;
+  await video.save();
+
+  return res.status(200).json(
+    new apiResponse(200, video, "Publish video toggled..")
+  )
+});
 
 module.exports = {
   publishVideo,
   getAllVideos,
   getById,
   updateVideo,
-  deleteVideo
+  deleteVideo,
+  toggelPublicStatus
 };
