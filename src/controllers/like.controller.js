@@ -115,7 +115,7 @@ return res.status(200).json(
 )
 })
 
-module.exports ={
+module.exports = {
     toggleVideoLike,
     toggleCommentLike,
     toggleTweetLike,
